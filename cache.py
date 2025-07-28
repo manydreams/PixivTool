@@ -17,10 +17,7 @@ class Cache:
         now = datetime.datetime.now().timestamp()
         cnt = 0
         
-        if len(self.cache_timeout) == 0:
-            return cnt
-        
-        while self.cache_timeout[-1][0] < now:
+        while len(self.cache_timeout) > 0 and self.cache_timeout[-1][0] < now:
             
             key = self.cache_timeout.pop()[1]
             del self.cache[key]

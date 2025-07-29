@@ -4,43 +4,57 @@ from functools import lru_cache
 from time import sleep
 from lxml import etree
 
-from ncatbot.core import BotAPI ,Image
+from ncatbot.core import Image
 from ncatbot.utils import get_log
 
 from .cache import Cache
 
 _log = get_log(__name__)
+img_ceche = Cache(max_size=1024)
 
-def get_top50_id() -> list[str]:
-    res = httpx.request(url="https://pixiv.mokeyjay.com", method="get")
+async def get_top50_id() -> list[str]:
+    try:
+        res = await httpx.AsyncClient().get(url="https://pixiv.mokeyjay.com")
+    except httpx.ReadTimeout:
+        _log.warning("get_top50_id timeout")
+        return []
+    except Exception as e:
+        _log.warning(f"get_top50_id error: {e}")
+        return []  
+    
+    # check response status  
     if res.status_code != 200:
         return []
+    
+    # parse the response
     html = etree.HTML(res.text)
     urls: list[str] = html.xpath("//a/@href")
+    
+    # get the ids from parsed urls
     ids = [url.split("/")[-1] 
             for url in urls 
                 if url.startswith("https://www.pixiv.net/artworks/")]
     return ids
 
-img_ceche = Cache(max_size=1024)
-def get_image(url: str, count: int = 0) -> dict | None:
+async def get_image(url: str, count: int = 0) -> dict | None:
     ret = img_ceche.get(url)
-    ret = None
     if ret != None:
+        _log.info(f"Cache hit: {url}")
         return ret
+    if count > 3:
+        _log.warning(f"get_image failed: {url}, count: {count}")
+        return None
     try:
-        res = httpx.get(url)
+        # res = httpx.get(url)
+        res = await httpx.AsyncClient().get(url)
     except httpx.ReadTimeout:
-        return
+        _log.warning(f"get_image timeout: {url}, retrying...")
+        return get_image(url, count+1)
     except Exception as e:
         _log.warning(f"get_image error: {e}")
         return get_image(url, count+1)
     if res.status_code != 200:
         _log.warning(f"Http Code: {res.status_code}")
-        return
-    ret = Image(f"base64://{base64.b64encode(res.content).decode('utf-8')}")
-    img_ceche.update(url, ret)
-    if res.status_code != 200:
         return
     ret = Image(f"base64://{base64.b64encode(res.content).decode('utf-8')}")
     img_ceche.update(url, ret)

@@ -80,7 +80,7 @@ class PixivTool(BasePlugin):
         
         _log.info(f'{proxy_url}/{pid}')
         
-        image = get_image(f'{proxy_url}/{pid}')
+        image = await get_image(f'{proxy_url}/{pid}')
         
         # check image is valid
         if image is None:
@@ -116,7 +116,7 @@ class PixivTool(BasePlugin):
             self.get_top_flag = False
             return
         
-        top50: list[str] = get_top50_id()
+        top50: list[str] = await get_top50_id()
         if top50 is None:
             await msg.reply("获取失败")
             self.get_top_flag = False
@@ -135,7 +135,7 @@ class PixivTool(BasePlugin):
             is_dirty = True
             
             # append image to message
-            img = get_image(f"{proxy_url}/{i}")
+            img = await get_image(f"{proxy_url}/{i}")
             if img is None:
                 message += MessageChain(f"获取图片[{i}]失败\n")
             else:

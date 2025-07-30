@@ -36,23 +36,24 @@ async def get_top50_id() -> list[str]:
                 if url.startswith("https://www.pixiv.net/artworks/")]
     return ids
 
-async def get_image(url: str, count: int = 0) -> dict | None:
+async def get_image(url: str, retry: int = 0) -> dict | None:
+    
     ret = img_ceche.get(url)
+    
     if ret != None:
         _log.info(f"Cache hit: {url}")
         return ret
-    if count > 3:
-        _log.warning(f"get_image failed: {url}, count: {count}")
+    if retry >= 5:
+        _log.warning(f"get_image error: {url}, retrying {retry}")
         return None
     try:
-        # res = httpx.get(url)
-        res = await httpx.AsyncClient().get(url)
+        res = await httpx.AsyncClient().get(url, timeout=30)
     except httpx.ReadTimeout:
-        _log.warning(f"get_image timeout: {url}, retrying...")
-        return get_image(url, count+1)
+        _log.warning(f"get_image timeout: {url}, retrying {retry + 1}...")
+        return await get_image(url, retry+1)
     except Exception as e:
-        _log.warning(f"get_image error: {e}")
-        return get_image(url, count+1)
+        _log.warning(f"get_image failed: {url}, {e}, retrying {retry + 1}...")
+        return await get_image(url, retry+1)
     if res.status_code != 200:
         _log.warning(f"Http Code: {res.status_code}")
         return
